@@ -2098,41 +2098,52 @@ Throw an error when not in a list."
       (let ((struct (org-list-struct)))
 	(goto-char (org-list-get-item-end begin struct))))))
 
-(defun org-previous-item ()
+(defun org-previous-item (&optional arg)
   "Move to the beginning of the previous item.
-Throw an error when not in a list.  Also throw an error when at
+Throw an error when not in a list. Move to previous paragraph when at
 first item, unless `org-list-use-circular-motion' is non-nil."
-  (interactive)
-  (let ((item (org-in-item-p)))
-    (if (not item)
-	(error "Not in an item")
-      (goto-char item)
-      (let* ((struct (org-list-struct))
-	     (prevs (org-list-prevs-alist struct))
-	     (prevp (org-list-get-prev-item item struct prevs)))
-	(cond
-	 (prevp (goto-char prevp))
-	 (org-list-use-circular-motion
-	  (goto-char (org-list-get-last-item item struct prevs)))
-	 (t (error "On first item")))))))
+  (interactive "P")
+  (if arg
+      (backward-paragraph)
+    (let ((item (org-in-item-p))
+          (saved-pos (point)))
+      (if (not item)
+          (error "Not in an item")
+        (goto-char item)
+        (when (= item saved-pos)
+          (let* ((struct (org-list-struct))
+                 (prevs (org-list-prevs-alist struct))
+                 (prevp (org-list-get-prev-item item struct prevs)))
+            (cond
+             (prevp (goto-char prevp))
+             (org-list-use-circular-motion
+              (goto-char (org-list-get-last-item item struct prevs)))
+             (t
+              (goto-char saved-pos)
+              (backward-paragraph)))))))))
 
-(defun org-next-item ()
+(defun org-next-item (&optional arg)
   "Move to the beginning of the next item.
-Throw an error when not in a list.  Also throw an error when at
+Throw an error when not in a list. Move to next paragraph when at
 last item, unless `org-list-use-circular-motion' is non-nil."
-  (interactive)
-  (let ((item (org-in-item-p)))
-    (if (not item)
-	(error "Not in an item")
-      (goto-char item)
-      (let* ((struct (org-list-struct))
-	     (prevs (org-list-prevs-alist struct))
-	     (prevp (org-list-get-next-item item struct prevs)))
-	(cond
-	 (prevp (goto-char prevp))
-	 (org-list-use-circular-motion
-	  (goto-char (org-list-get-first-item item struct prevs)))
-	 (t (error "On last item")))))))
+  (interactive "P")
+  (if arg
+      (forward-paragraph)
+    (let ((item (org-in-item-p))
+          (saved-pos (point)))
+      (if (not item)
+          (error "Not in an item")
+        (goto-char item)
+        (let* ((struct (org-list-struct))
+               (prevs (org-list-prevs-alist struct))
+               (nextp (org-list-get-next-item item struct prevs)))
+          (cond
+           (nextp (goto-char nextp))
+           (org-list-use-circular-motion
+            (goto-char (org-list-get-first-item item struct prevs)))
+           (t
+            (goto-char saved-pos)
+            (forward-paragraph))))))))
 
 (defun org-move-item-down ()
   "Move the item at point down, i.e. swap with following item.
