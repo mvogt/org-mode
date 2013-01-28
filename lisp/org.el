@@ -18788,8 +18788,8 @@ commands for more information."
    (t (org-drag-element-forward))))
 
 (defun org-shiftup (&optional arg)
-  "Increase item in timestamp or increase priority of current headline.
-Calls `org-timestamp-up' or `org-priority-up', or `org-previous-item',
+  "Increase item in timestamp or move to previous item or paragraph.
+Calls `org-timestamp-up' or `org-previous-item' or `backward-paragraph',
 depending on context.  See the individual commands for more information."
   (interactive "P")
   (cond
@@ -18799,21 +18799,17 @@ depending on context.  See the individual commands for more information."
    ((org-at-timestamp-p t)
     (call-interactively (if org-edit-timestamp-down-means-later
 			    'org-timestamp-down 'org-timestamp-up)))
-   ((and (not (eq org-support-shift-select 'always))
-	 org-enable-priority-commands
-	 (org-at-heading-p))
-    (call-interactively 'org-priority-up))
-   ((and (not org-support-shift-select) (org-at-item-p))
+   ((and (not org-support-shift-select) (org-in-item-p))
     (call-interactively 'org-previous-item))
    ((org-clocktable-try-shift 'up arg))
    ((run-hook-with-args-until-success 'org-shiftup-final-hook))
    (org-support-shift-select
     (org-call-for-shift-select 'previous-line))
-   (t (org-shiftselect-error))))
+   (t (backward-paragraph))))
 
 (defun org-shiftdown (&optional arg)
-  "Decrease item in timestamp or decrease priority of current headline.
-Calls `org-timestamp-down' or `org-priority-down', or `org-next-item'
+  "Decrease item in timestamp or move to next item or paragraph.
+Calls `org-timestamp-down' or `org-next-item' or `forward-paragraph'
 depending on context.  See the individual commands for more information."
   (interactive "P")
   (cond
@@ -18823,17 +18819,13 @@ depending on context.  See the individual commands for more information."
    ((org-at-timestamp-p t)
     (call-interactively (if org-edit-timestamp-down-means-later
 			    'org-timestamp-up 'org-timestamp-down)))
-   ((and (not (eq org-support-shift-select 'always))
-	 org-enable-priority-commands
-	 (org-at-heading-p))
-    (call-interactively 'org-priority-down))
-   ((and (not org-support-shift-select) (org-at-item-p))
+   ((and (not org-support-shift-select) (org-in-item-p))
     (call-interactively 'org-next-item))
    ((org-clocktable-try-shift 'down arg))
    ((run-hook-with-args-until-success 'org-shiftdown-final-hook))
    (org-support-shift-select
     (org-call-for-shift-select 'next-line))
-   (t (org-shiftselect-error))))
+   (t (forward-paragraph))))
 
 (defun org-shiftright (&optional arg)
   "Cycle the thing at point or in the current line, depending on context.
