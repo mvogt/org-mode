@@ -1419,6 +1419,7 @@ it's called with the same value of KEY.  All other times, the cached
   ;; current buffer, writing the resulting HTML to a new buffer, and
   ;; return it.  Unlike htmlize-buffer, this doesn't change current
   ;; buffer or use switch-to-buffer.
+  (expand-org-link)
   (save-excursion
     ;; Protect against the hook changing the current buffer.
     (save-excursion
@@ -1428,7 +1429,8 @@ it's called with the same value of KEY.  All other times, the cached
     (htmlize-ensure-fontified)
     (clrhash htmlize-extended-character-cache)
     (clrhash htmlize-memoization-table)
-    (let* ((buffer-faces (htmlize-faces-in-buffer))
+    (let* ((org-buffer (current-buffer))
+           (buffer-faces (htmlize-faces-in-buffer))
 	   (face-map (htmlize-make-face-map (adjoin 'default buffer-faces)))
 	   ;; Generate the new buffer.  It's important that it inherits
 	   ;; default-directory from the current buffer.
@@ -1541,8 +1543,14 @@ it's called with the same value of KEY.  All other times, the cached
 	  ;; font-lock-mode, won't be initialized.  Oh well.
 	  (funcall htmlize-html-major-mode))
 	(set (make-local-variable 'htmlize-buffer-places) places)
+        (transform-image-link)
+        (transform-org-link)
+        (transform-sourcecode)
 	(run-hooks 'htmlize-after-hook)
 	(buffer-enable-undo))
+      (switch-to-buffer org-buffer)
+      (shrink-org-link)
+      (switch-to-buffer htmlbuf)
       htmlbuf)))
 
 ;; Utility functions.
@@ -1623,6 +1631,22 @@ See `htmlize-buffer' for details."
 		   (htmlize-buffer-1))))
     (when (interactive-p)
       (switch-to-buffer htmlbuf))
+    htmlbuf))
+
+;;;###autoload
+(defun htmlize-region (beg end)
+  "Convert the region to HTML, preserving colors and decorations.
+See `htmlize-buffer' for details."
+  (interactive "r")
+  ;; Don't let zmacs region highlighting end up in HTML.
+  (when (fboundp 'zmacs-deactivate-region)
+    (zmacs-deactivate-region))
+  (let ((htmlbuf (save-restriction
+		   (narrow-to-region beg end)
+		   (htmlize-buffer-1))))
+    (when (interactive-p)
+      (switch-to-buffer htmlbuf))
+    ;;(org-open-file buffer-file-name)
     htmlbuf))
 
 (defun htmlize-region-for-paste (beg end)
@@ -1763,6 +1787,68 @@ corresponding source file."
   "HTMLize dired-marked files."
   (interactive "P")
   (htmlize-many-files (dired-get-marked-files nil arg) target-directory))
+
+;;;Add begin by hongmin Wang @whunmr  Aug 17, 2012
+(defun expand-org-link (&optional buffer)
+  "Change [[url][shortname]] to [[url] [shortname]] by adding a space between url and shortname"
+  (goto-char (point-min))
+  (while (re-search-forward "\\[\\[\\([^][]+\\)\\]\\(\\[\\([^][]+\\)\\]\\)\\]"
+			    nil t)
+    (let ((url (match-string 1))
+	  (link-text (match-string 3)))
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert "[[" url "] [" link-text "]]"))))
+
+(defun shrink-org-link (&optional buffer)
+  "Change [[url] [shortname]] to [[url][shortname]], remove the space between url and shortname"
+  (goto-char (point-min))
+  (while (re-search-forward "\\[\\[\\([^][]+\\)\\] \\(\\[\\([^][]+\\)\\]\\)\\]"
+			    nil t)
+    (let ((url (match-string 1))
+	  (link-text (match-string 3)))
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert "[[" url "][" link-text "]]"))))
+
+(defun transform-org-link ()
+  "transform htmlized <span> to <a>"
+
+  (goto-char (point-min))
+  (while (re-search-forward "\\[\\[<span \\([^>]+\\)>\\([^][]+\\)</span>\\] \\[\\([^][]+\\)\\]\\]"
+			    nil t)
+    (let ((style (match-string 1))
+          (url (match-string 2))
+	  (link-text (match-string 3)))
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert "<a " style " href=\"" url "\">" link-text "</a>"))))
+
+(defun transform-sourcecode ()
+  ;;<Pre class="brush:java">
+  (goto-char (point-min))
+  (while (re-search-forward "&lt;c&gt;\\([^>]+?\\)&lt;/c&gt;"
+			    nil t)
+    (let ((code (match-string 1)))
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert "<Pre class=\"brush:java\">" code "</Pre>"))))
+
+(defun transform-image-link ()
+  ;;Convert from:
+  ;;<span class="org-link">https://www.google.com/intl/en_ALL/images/logos/images_logo_lg.gif</span>
+  ;;to:
+  ;;<img src="https://www.google.com/intl/en\_ALL/images/logos/images\_logo\_lg.gif" alt="images\_logo\_lg.gif"/>
+  (goto-char (point-min))
+  (while (re-search-forward "\\[\\[<span [^>]+>\\([^][]+\\(\\(png\\)\\|\\(gif\\)\\|\\(jpg\\)\\|\\(jpeg\\)\\)\\)</span>\\] \\[[^][]+\\]\\]"
+			    nil t)
+    (let ((url (match-string 1)))
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert "<img src=\"" url "\" />")))
+
+  (goto-char (point-min))
+  (while (re-search-forward "<span [^>]*>\\(http[^<]+\\(\\(png\\)\\|\\(gif\\)\\|\\(jpg\\)\\|\\(jpeg\\)\\)\\)</span>"
+			    nil t)
+    (let ((image-url (match-string 1)))
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert "<img src=\"" image-url "\" />"))))
+;;;Add end by hongmin Wang @whunmr  Aug 17, 2012
 
 (provide 'htmlize)
 
